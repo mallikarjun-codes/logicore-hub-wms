@@ -1,0 +1,1 @@
+# logicore-hub-wms
