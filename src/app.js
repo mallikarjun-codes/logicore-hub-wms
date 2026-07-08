@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/authRoutes.js';
 import companyRoutes from './routes/companyRoutes.js';
+import warehouseRoutes from './routes/warehouseRoutes.js';
+import productRoutes from './routes/productRoutes.js';
 
 // dotenv.config() is intentionally NOT called here.
 // It is called in src/index.js (production) and in vitest.config.js (tests),
@@ -24,6 +26,8 @@ app.get('/', (_req, res) => {
 // ── API Routes ────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/companies', companyRoutes);
+app.use('/api/warehouses', warehouseRoutes);
+app.use('/api/products', productRoutes);
 
 // ── 404 Catch-All ─────────────────────────────────────────────────────────────
 app.use((req, res) => {
