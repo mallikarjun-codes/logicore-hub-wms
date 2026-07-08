@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { Mail, Lock } from 'lucide-react';
 
@@ -100,11 +100,21 @@ export default function Login() {
           </button>
         </form>
 
-        {/* Registration guidance — no self-service signup */}
-        <p className="mt-6 text-center text-xs text-zinc-500">
-          Need an account?{' '}
-          <span className="text-zinc-400 font-medium">Contact your 3PL administrator.</span>
-        </p>
+        {/* Registration links */}
+        <div className="mt-6 text-center space-y-2">
+          <p className="text-xs text-zinc-500">
+            Don't have an account?{' '}
+            <Link
+              to="/register"
+              className="text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"
+            >
+              Sign up here
+            </Link>
+          </p>
+          <p className="text-xs text-zinc-600">
+            Account provisioning? Contact your 3PL administrator.
+          </p>
+        </div>
       </div>
     </div>
   );

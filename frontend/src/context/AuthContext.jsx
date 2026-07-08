@@ -2,14 +2,43 @@ import React, { createContext, useState, useContext } from 'react';
 
 const AuthContext = createContext(null);
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Safely read the token from localStorage.
+ * Guards against the case where the value was stored as a JSON-stringified
+ * string (e.g. '"eyJ..."' with surrounding quote chars).
+ */
+function readToken() {
+  let raw = localStorage.getItem('token');
+  if (!raw) return null;
+  // Strip accidental JSON wrapping quotes
+  if (raw.startsWith('"') && raw.endsWith('"')) {
+    raw = raw.slice(1, -1);
+  }
+  return raw;
+}
+
+/**
+ * Safely write a token to localStorage as a plain string (never JSON.stringify).
+ */
+function writeToken(token) {
+  localStorage.setItem('token', token);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
-  const [token, setToken] = useState(() => {
-    return localStorage.getItem('token') || null;
-  });
+
+  const [token, setToken] = useState(() => readToken());
 
   const login = async (email, password) => {
     const res = await fetch('http://localhost:3000/api/auth/login', {
@@ -24,7 +53,9 @@ export function AuthProvider({ children }) {
     }
 
     const { token: jwt, user: userProfile } = data.data;
-    localStorage.setItem('token', jwt);
+
+    // Store token as a plain string — never JSON.stringify a token
+    writeToken(jwt);
     localStorage.setItem('user', JSON.stringify(userProfile));
     setToken(jwt);
     setUser(userProfile);
@@ -38,20 +69,26 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  // Helper authorized request wrapper
+  /**
+   * Authorized fetch wrapper.
+   * Reads the token via the safe helper each time so stale in-memory state
+   * never causes a silent header-miss.
+   */
   const apiFetch = async (url, options = {}) => {
+    const currentToken = token || readToken();
+
     const headers = {
       'Content-Type': 'application/json',
       ...options.headers,
     };
 
-    const currentToken = token || localStorage.getItem('token');
     if (currentToken) {
+      // Single space between "Bearer" and the token — no extra chars
       headers['Authorization'] = `Bearer ${currentToken}`;
     }
 
     const targetUrl = url.startsWith('http') ? url : `http://localhost:3000${url}`;
-    
+
     try {
       const res = await fetch(targetUrl, {
         ...options,

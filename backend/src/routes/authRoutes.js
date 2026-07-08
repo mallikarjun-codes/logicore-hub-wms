@@ -1,8 +1,11 @@
 import { Router } from 'express';
-import { login, getMe } from '../controllers/authController.js';
+import { login, register, getMe } from '../controllers/authController.js';
 import { authenticateJWT } from '../middlewares/authMiddleware.js';
 
 const router = Router();
+
+// POST /api/auth/register  — public; creates a new user account
+router.post('/register', register);
 
 // POST /api/auth/login  — public
 router.post('/login', login);

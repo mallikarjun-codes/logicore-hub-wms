@@ -4,13 +4,13 @@ import jwt from 'jsonwebtoken';
  * authenticateJWT
  * Extracts and verifies the Bearer token from the Authorization header.
  * Attaches the decoded payload to req.user for downstream handlers.
- *
- * @param {import('express').Request} req
- * @param {import('express').Response} res
- * @param {import('express').NextFunction} next
  */
 export const authenticateJWT = (req, res, next) => {
   const authHeader = req.headers.authorization;
+
+  // ── Diagnostic log — remove once token issues are resolved ──────────────────
+  console.log('[AUTH] Authorization header received:', authHeader
+    ? `"${authHeader.substring(0, 40)}..."` : 'MISSING');
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     res.status(401).json({
@@ -20,8 +20,19 @@ export const authenticateJWT = (req, res, next) => {
     return;
   }
 
-  const token = authHeader.split(' ')[1];
+  // Split on the single space after "Bearer" — trim to handle any stray whitespace
+  const rawToken = authHeader.split(' ')[1]?.trim();
+
+  // Guard: reject if the token string is wrapped in literal quote characters
+  // (this happens when localStorage returns a JSON-stringified value).
+  const token = rawToken?.startsWith('"') && rawToken?.endsWith('"')
+    ? rawToken.slice(1, -1)
+    : rawToken;
+
+  console.log('[AUTH] Token extracted (first 20 chars):', token ? token.substring(0, 20) : 'NONE');
+
   const secret = process.env.JWT_SECRET;
+  console.log('[AUTH] JWT_SECRET present:', !!secret);
 
   if (!secret) {
     res.status(500).json({
@@ -33,12 +44,12 @@ export const authenticateJWT = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, secret);
-    // Attach the decoded payload directly — standard JS object assignment
     req.user = decoded;
     next();
   } catch (error) {
+    console.error('[AUTH] jwt.verify failed:', error.message);
     if (error instanceof jwt.TokenExpiredError) {
-      res.status(401).json({ success: false, message: 'Token has expired.' });
+      res.status(401).json({ success: false, message: 'Token has expired. Please log in again.' });
       return;
     }
     if (error instanceof jwt.JsonWebTokenError) {
@@ -52,9 +63,7 @@ export const authenticateJWT = (req, res, next) => {
 /**
  * authorizeRoles
  * Higher-order middleware factory. Returns a middleware that checks whether
- * req.user.role is one of the permitted roles for the route. Returns 403 if not.
- *
- * @param {...string} roles - Allowed role strings (e.g. 'SUPER_ADMIN', 'CLIENT')
+ * req.user.role is one of the permitted roles for the route.
  */
 export const authorizeRoles = (...roles) => {
   return (req, res, next) => {
@@ -82,9 +91,6 @@ export const authorizeRoles = (...roles) => {
  * - CLIENT              → { companyId }
  * - WAREHOUSE_MANAGER / WAREHOUSE_STAFF → { warehouseId }
  * - SUPER_ADMIN         → {} (unrestricted)
- *
- * @param {{ role: string, companyId?: string, warehouseId?: string }} user
- * @returns {Record<string, string | undefined>}
  */
 export const tenantGuard = (user) => {
   switch (user.role) {
