@@ -6,6 +6,7 @@ import warehouseRoutes from './routes/warehouseRoutes.js';
 import productRoutes from './routes/productRoutes.js';
 import storageRoutes from './routes/storageRoutes.js';
 import dispatchRoutes from './routes/dispatchRoutes.js';
+import billingRoutes from './routes/billingRoutes.js';
 
 // dotenv.config() is intentionally NOT called here.
 // It is called in src/index.js (production) and in vitest.config.js (tests),
@@ -32,6 +33,7 @@ app.use('/api/warehouses', warehouseRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/storage/requests', storageRoutes);
 app.use('/api/dispatch/requests', dispatchRoutes);
+app.use('/api/billing', billingRoutes);
 
 // ── 404 Catch-All ─────────────────────────────────────────────────────────────
 app.use((req, res) => {
