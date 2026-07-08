@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import bcrypt from 'bcryptjs';
-import app from '../src/app';
-import prisma from '../src/config/prisma';
+import app from '../src/app.js';
+import prisma from '../src/config/prisma.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Test-owned users — separate from seed data, cleaned up after suite
@@ -16,10 +16,10 @@ const NEW_COMPANY_GST = 'TEST29AABCU9900R1ZX';
 const BLOCKED_COMPANY_GST = 'TEST29AADCB1111M1Z0';
 const DUPLICATE_GST = 'TEST29AABCU9900R1ZX'; // same as NEW_COMPANY_GST, used in Test 3
 
-let adminToken: string;
-let clientToken: string;
-let createdCompanyId: string;
-let inventoryLockedCompanyId: string;
+let adminToken;
+let clientToken;
+let createdCompanyId;
+let inventoryLockedCompanyId;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Setup

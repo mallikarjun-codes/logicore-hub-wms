@@ -25,10 +25,10 @@ async function main() {
   const superAdmin = await prisma.user.create({
     data: {
       email: 'admin@waremind.ai',
-      passwordHash: 'hashed_password_placeholder', // TODO: Use proper hashing in production
+      passwordHash: 'hashed_password_placeholder', // TODO: Use bcrypt in production
       name: 'Super Administrator',
       role: 'SUPER_ADMIN',
-    }
+    },
   });
 
   console.log('Creating Client Companies...');
@@ -40,8 +40,8 @@ async function main() {
       address: 'Samsung Hub, New Delhi',
       contactEmail: 'logistics@samsung.in',
       billingPlan: 'ENTERPRISE',
-      priority: 'HIGH'
-    }
+      priority: 'HIGH',
+    },
   });
 
   const boat = await prisma.company.create({
@@ -51,8 +51,8 @@ async function main() {
       address: 'Boat Campus, Mumbai',
       contactEmail: 'operations@boat-lifestyle.com',
       billingPlan: 'PROFESSIONAL',
-      priority: 'MEDIUM'
-    }
+      priority: 'MEDIUM',
+    },
   });
 
   console.log('Creating Users for Companies (Client Role)...');
@@ -64,16 +64,16 @@ async function main() {
         passwordHash: 'hashed_pw_1',
         name: 'Rahul Sharma',
         role: 'CLIENT',
-        companyId: samsung.id
+        companyId: samsung.id,
       },
       {
         email: 'ops@boat-lifestyle.com',
         passwordHash: 'hashed_pw_2',
         name: 'Neha Singh',
         role: 'CLIENT',
-        companyId: boat.id
-      }
-    ]
+        companyId: boat.id,
+      },
+    ],
   });
 
   console.log('Creating massive Warehouse "Alpha Hub" with Zones, Racks, Shelves, and Bins...');
@@ -95,15 +95,15 @@ async function main() {
                   name: `Shelf ${shelfIndex + 1}`,
                   bins: {
                     create: Array.from({ length: 2 }).map((_, binIndex) => ({
-                      name: `Bin ${binIndex + 1}`
-                    }))
-                  }
-                }))
-              }
-            }))
-          }
-        }))
-      }
+                      name: `Bin ${binIndex + 1}`,
+                    })),
+                  },
+                })),
+              },
+            })),
+          },
+        })),
+      },
     },
     include: {
       zones: {
@@ -111,15 +111,13 @@ async function main() {
           racks: {
             include: {
               shelves: {
-                include: {
-                  bins: true
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+                include: { bins: true },
+              },
+            },
+          },
+        },
+      },
+    },
   });
 
   console.log('Creating Warehouse Manager and Staff assigned to "Alpha Hub"...');
@@ -131,23 +129,23 @@ async function main() {
         passwordHash: 'hashed_pw_manager',
         name: 'Amit Patel',
         role: 'WAREHOUSE_MANAGER',
-        warehouseId: alphaHub.id
+        warehouseId: alphaHub.id,
       },
       {
         email: 'staff1@alphahub.waremind.ai',
         passwordHash: 'hashed_pw_staff1',
         name: 'Suresh Kumar',
         role: 'WAREHOUSE_STAFF',
-        warehouseId: alphaHub.id
+        warehouseId: alphaHub.id,
       },
       {
         email: 'staff2@alphahub.waremind.ai',
         passwordHash: 'hashed_pw_staff2',
         name: 'Rajesh Verma',
         role: 'WAREHOUSE_STAFF',
-        warehouseId: alphaHub.id
-      }
-    ]
+        warehouseId: alphaHub.id,
+      },
+    ],
   });
 
   console.log('Creating dummy Products...');
@@ -161,8 +159,8 @@ async function main() {
       dimensions: '162.3 x 79 x 8.6 mm',
       isHazardous: false,
       isTemperatureSensitive: true,
-      companyId: samsung.id
-    }
+      companyId: samsung.id,
+    },
   });
 
   const airdopes = await prisma.product.create({
@@ -174,13 +172,12 @@ async function main() {
       dimensions: '5 x 5 x 2 cm',
       isHazardous: false,
       isTemperatureSensitive: false,
-      companyId: boat.id
-    }
+      companyId: boat.id,
+    },
   });
 
   console.log('Seeding initial Inventory items...');
 
-  // Get first bin and second bin from Alpha Hub
   const firstBinId = alphaHub.zones[0].racks[0].shelves[0].bins[0].id;
   const secondBinId = alphaHub.zones[0].racks[0].shelves[0].bins[1].id;
 
@@ -192,8 +189,8 @@ async function main() {
       productId: s24.id,
       companyId: samsung.id,
       warehouseId: alphaHub.id,
-      binId: firstBinId
-    }
+      binId: firstBinId,
+    },
   });
 
   await prisma.inventory.create({
@@ -204,8 +201,8 @@ async function main() {
       productId: airdopes.id,
       companyId: boat.id,
       warehouseId: alphaHub.id,
-      binId: secondBinId
-    }
+      binId: secondBinId,
+    },
   });
 
   console.log('Creating Storage Requests...');
@@ -215,11 +212,11 @@ async function main() {
       status: 'PENDING',
       requestedPallets: 10,
       itemsDetails: [
-        { sku: 'SAM-S24-ULTRA', quantity: 2000, expectedArrival: '2026-08-01' }
+        { sku: 'SAM-S24-ULTRA', quantity: 2000, expectedArrival: '2026-08-01' },
       ],
       companyId: samsung.id,
-      warehouseId: alphaHub.id
-    }
+      warehouseId: alphaHub.id,
+    },
   });
 
   console.log('Creating Unpaid Invoice...');
@@ -228,12 +225,12 @@ async function main() {
     data: {
       month: 7,
       year: 2026,
-      storageCharges: 5000.00,
-      handlingCharges: 1500.00,
-      totalAmount: 6500.00,
+      storageCharges: 5000.0,
+      handlingCharges: 1500.0,
+      totalAmount: 6500.0,
       status: 'UNPAID',
-      companyId: boat.id
-    }
+      companyId: boat.id,
+    },
   });
 
   console.log('Seed completed successfully.');

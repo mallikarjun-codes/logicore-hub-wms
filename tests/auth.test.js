@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import app from '../src/app';
-import prisma from '../src/config/prisma';
+import app from '../src/app.js';
+import prisma from '../src/config/prisma.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Test data — isolated from the main seed; cleaned up after the suite
@@ -12,8 +12,8 @@ const TEST_EMAIL = 'test.superadmin@waremind-test.ai';
 const TEST_PASSWORD = 'SecurePass123!';
 const TEST_WRONG_PASSWORD = 'WrongPassword999!';
 
-let testUserId: string;
-let validToken: string;
+let testUserId;
+let validToken;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Setup: create a real bcrypt-hashed user before the test suite
@@ -54,8 +54,8 @@ describe('Auth API — POST /api/auth/login', () => {
     expect(typeof res.body.data.token).toBe('string');
 
     // Verify the JWT is properly structured and contains the right claims
-    const secret = process.env.JWT_SECRET!;
-    const decoded = jwt.verify(res.body.data.token, secret) as Record<string, unknown>;
+    const secret = process.env.JWT_SECRET;
+    const decoded = jwt.verify(res.body.data.token, secret);
     expect(decoded.email).toBe(TEST_EMAIL);
     expect(decoded.role).toBe('SUPER_ADMIN');
 
