@@ -4,6 +4,8 @@ import authRoutes from './routes/authRoutes.js';
 import companyRoutes from './routes/companyRoutes.js';
 import warehouseRoutes from './routes/warehouseRoutes.js';
 import productRoutes from './routes/productRoutes.js';
+import storageRoutes from './routes/storageRoutes.js';
+import dispatchRoutes from './routes/dispatchRoutes.js';
 
 // dotenv.config() is intentionally NOT called here.
 // It is called in src/index.js (production) and in vitest.config.js (tests),
@@ -28,6 +30,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/warehouses', warehouseRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/storage/requests', storageRoutes);
+app.use('/api/dispatch/requests', dispatchRoutes);
 
 // ── 404 Catch-All ─────────────────────────────────────────────────────────────
 app.use((req, res) => {
