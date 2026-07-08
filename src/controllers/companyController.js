@@ -1,21 +1,18 @@
-import { Request, Response } from 'express';
-import { Priority } from '@prisma/client';
-import prisma from '../config/prisma';
+import prisma from '../config/prisma.js';
+
+// Valid priority values — mirrors the Prisma schema enum
+const VALID_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH'];
 
 /**
  * POST /api/companies
  * Creates a new client company. SUPER_ADMIN only.
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
  */
-export const createCompany = async (req: Request, res: Response): Promise<void> => {
+export const createCompany = async (req, res) => {
   try {
-    const { name, gstNumber, address, contactEmail, billingPlan, priority } = req.body as {
-      name?: string;
-      gstNumber?: string;
-      address?: string;
-      contactEmail?: string;
-      billingPlan?: string;
-      priority?: Priority;
-    };
+    const { name, gstNumber, address, contactEmail, billingPlan, priority } = req.body;
 
     // Validate required fields
     if (!name || !gstNumber || !address || !contactEmail || !billingPlan) {
@@ -27,11 +24,10 @@ export const createCompany = async (req: Request, res: Response): Promise<void> 
     }
 
     // Validate priority enum if provided
-    const validPriorities = Object.values(Priority);
-    if (priority && !validPriorities.includes(priority)) {
+    if (priority && !VALID_PRIORITIES.includes(priority)) {
       res.status(400).json({
         success: false,
-        message: `Invalid priority. Valid values are: ${validPriorities.join(', ')}.`,
+        message: `Invalid priority. Valid values are: ${VALID_PRIORITIES.join(', ')}.`,
       });
       return;
     }
@@ -53,7 +49,7 @@ export const createCompany = async (req: Request, res: Response): Promise<void> 
         address,
         contactEmail,
         billingPlan,
-        priority: priority ?? Priority.MEDIUM,
+        priority: priority ?? 'MEDIUM',
       },
     });
 
@@ -76,8 +72,11 @@ export const createCompany = async (req: Request, res: Response): Promise<void> 
  * GET /api/companies
  * Returns all companies with aggregated inventory and active storage request counts.
  * SUPER_ADMIN only.
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
  */
-export const getAllCompanies = async (req: Request, res: Response): Promise<void> => {
+export const getAllCompanies = async (req, res) => {
   try {
     const companies = await prisma.company.findMany({
       orderBy: { createdAt: 'desc' },
@@ -135,8 +134,11 @@ export const getAllCompanies = async (req: Request, res: Response): Promise<void
  * GET /api/companies/:id
  * Returns full details of a single company by ID.
  * SUPER_ADMIN only.
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
  */
-export const getCompanyById = async (req: Request, res: Response): Promise<void> => {
+export const getCompanyById = async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -194,28 +196,22 @@ export const getCompanyById = async (req: Request, res: Response): Promise<void>
  * PUT /api/companies/:id
  * Updates billing plan, priority, or other mutable details.
  * SUPER_ADMIN only.
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
  */
-export const updateCompany = async (req: Request, res: Response): Promise<void> => {
+export const updateCompany = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, address, contactEmail, billingPlan, priority } = req.body as {
-      name?: string;
-      address?: string;
-      contactEmail?: string;
-      billingPlan?: string;
-      priority?: Priority;
-    };
+    const { name, address, contactEmail, billingPlan, priority } = req.body;
 
     // Validate priority enum if provided
-    if (priority) {
-      const validPriorities = Object.values(Priority);
-      if (!validPriorities.includes(priority)) {
-        res.status(400).json({
-          success: false,
-          message: `Invalid priority. Valid values are: ${validPriorities.join(', ')}.`,
-        });
-        return;
-      }
+    if (priority && !VALID_PRIORITIES.includes(priority)) {
+      res.status(400).json({
+        success: false,
+        message: `Invalid priority. Valid values are: ${VALID_PRIORITIES.join(', ')}.`,
+      });
+      return;
     }
 
     // Ensure company exists
@@ -229,13 +225,7 @@ export const updateCompany = async (req: Request, res: Response): Promise<void> 
     }
 
     // Build the update object with only the provided fields
-    const updateData: {
-      name?: string;
-      address?: string;
-      contactEmail?: string;
-      billingPlan?: string;
-      priority?: Priority;
-    } = {};
+    const updateData = {};
 
     if (name !== undefined) updateData.name = name;
     if (address !== undefined) updateData.address = address;
@@ -275,8 +265,11 @@ export const updateCompany = async (req: Request, res: Response): Promise<void> 
  * DELETE /api/companies/:id
  * Deletes a company — but only if they have NO active inventory (STORED or ALLOCATED).
  * SUPER_ADMIN only.
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
  */
-export const deleteCompany = async (req: Request, res: Response): Promise<void> => {
+export const deleteCompany = async (req, res) => {
   try {
     const { id } = req.params;
 

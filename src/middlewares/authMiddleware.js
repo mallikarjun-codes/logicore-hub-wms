@@ -1,25 +1,15 @@
-import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { Role } from '@prisma/client';
-
-interface JwtPayload {
-  userId: string;
-  email: string;
-  role: Role;
-  companyId: string | null;
-  warehouseId: string | null;
-}
 
 /**
  * authenticateJWT
  * Extracts and verifies the Bearer token from the Authorization header.
  * Attaches the decoded payload to req.user for downstream handlers.
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
  */
-export const authenticateJWT = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
+export const authenticateJWT = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -42,7 +32,8 @@ export const authenticateJWT = (
   }
 
   try {
-    const decoded = jwt.verify(token, secret) as JwtPayload;
+    const decoded = jwt.verify(token, secret);
+    // Attach the decoded payload directly — standard JS object assignment
     req.user = decoded;
     next();
   } catch (error) {
@@ -62,9 +53,11 @@ export const authenticateJWT = (
  * authorizeRoles
  * Higher-order middleware factory. Returns a middleware that checks whether
  * req.user.role is one of the permitted roles for the route. Returns 403 if not.
+ *
+ * @param {...string} roles - Allowed role strings (e.g. 'SUPER_ADMIN', 'CLIENT')
  */
-export const authorizeRoles = (...roles: Role[]) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
+export const authorizeRoles = (...roles) => {
+  return (req, res, next) => {
     if (!req.user) {
       res.status(401).json({ success: false, message: 'Not authenticated.' });
       return;
@@ -84,27 +77,23 @@ export const authorizeRoles = (...roles: Role[]) => {
 
 /**
  * tenantGuard
- * Structural enforcement utility — NOT a middleware itself, but a helper
- * used *inside* controllers to derive the correct tenant-scoped WHERE clause.
+ * Returns a Prisma-compatible `where` clause scoped to the requesting tenant.
  *
- * - CLIENT role   → scopes by companyId
- * - WAREHOUSE_MANAGER / WAREHOUSE_STAFF → scopes by warehouseId
- * - SUPER_ADMIN → no restriction (returns empty object so all records are returned)
+ * - CLIENT              → { companyId }
+ * - WAREHOUSE_MANAGER / WAREHOUSE_STAFF → { warehouseId }
+ * - SUPER_ADMIN         → {} (unrestricted)
  *
- * Usage inside a controller:
- *   const scope = tenantGuard(req.user!);
- *   const records = await prisma.inventory.findMany({ where: scope });
+ * @param {{ role: string, companyId?: string, warehouseId?: string }} user
+ * @returns {Record<string, string | undefined>}
  */
-export const tenantGuard = (
-  user: NonNullable<Request['user']>
-): Record<string, string | undefined> => {
+export const tenantGuard = (user) => {
   switch (user.role) {
-    case Role.CLIENT:
+    case 'CLIENT':
       return { companyId: user.companyId ?? undefined };
-    case Role.WAREHOUSE_MANAGER:
-    case Role.WAREHOUSE_STAFF:
+    case 'WAREHOUSE_MANAGER':
+    case 'WAREHOUSE_STAFF':
       return { warehouseId: user.warehouseId ?? undefined };
-    case Role.SUPER_ADMIN:
+    case 'SUPER_ADMIN':
     default:
       return {};
   }

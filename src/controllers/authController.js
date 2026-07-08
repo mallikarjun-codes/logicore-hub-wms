@@ -1,15 +1,17 @@
-import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt, { SignOptions } from 'jsonwebtoken';
-import prisma from '../config/prisma';
+import jwt from 'jsonwebtoken';
+import prisma from '../config/prisma.js';
 
 /**
  * POST /api/auth/login
  * Validates credentials, checks bcrypt hash, returns a signed JWT.
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
  */
-export const login = async (req: Request, res: Response): Promise<void> => {
+export const login = async (req, res) => {
   try {
-    const { email, password } = req.body as { email?: string; password?: string };
+    const { email, password } = req.body;
 
     if (!email || !password) {
       res.status(400).json({
@@ -25,7 +27,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     });
 
     if (!user) {
-      // Return 401 (not 404) to avoid leaking whether email exists
+      // Return 401 (not 404) to avoid leaking whether the email exists
       res.status(401).json({
         success: false,
         message: 'Invalid email or password.',
@@ -60,11 +62,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       warehouseId: user.warehouseId,
     };
 
-    const signOptions: SignOptions = {
-      expiresIn: (process.env.JWT_EXPIRES_IN ?? '24h') as SignOptions['expiresIn'],
-    };
-
-    const token = jwt.sign(payload, secret, signOptions);
+    const token = jwt.sign(payload, secret, {
+      expiresIn: process.env.JWT_EXPIRES_IN ?? '24h',
+    });
 
     res.status(200).json({
       success: true,
@@ -94,8 +94,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 /**
  * GET /api/auth/me
  * Returns the profile of the currently authenticated user (no passwordHash).
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
  */
-export const getMe = async (req: Request, res: Response): Promise<void> => {
+export const getMe = async (req, res) => {
   try {
     const userId = req.user?.userId;
 
