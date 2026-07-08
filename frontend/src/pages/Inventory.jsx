@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { Plus, Search, AlertOctagon, Snowflake, Loader2, PackageSearch } from 'lucide-react';
+import { Plus, Search, AlertOctagon, Snowflake, Loader2, PackageSearch, Building2 } from 'lucide-react';
 
 export default function Inventory() {
-  const { apiFetch } = useAuth();
+  const { user, apiFetch } = useAuth();
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [products, setProducts] = useState([]);
+
+  // For SUPER_ADMIN product creation — must pick a company
+  const [companies, setCompanies] = useState([]);
   const [newProduct, setNewProduct] = useState({
     sku: '',
     name: '',
@@ -16,7 +21,8 @@ export default function Inventory() {
     weight: '',
     dimensions: '',
     isHazardous: false,
-    isTemperatureSensitive: false
+    isTemperatureSensitive: false,
+    companyId: '',  // required for SUPER_ADMIN
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -40,23 +46,49 @@ export default function Inventory() {
     }
   };
 
+  const fetchCompanies = async () => {
+    if (!isSuperAdmin) return;
+    try {
+      const res = await apiFetch('/api/companies');
+      if (res.ok) {
+        const data = await res.json();
+        setCompanies(data.data || []);
+      }
+    } catch (err) {
+      console.error('Could not fetch companies:', err);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
+    fetchCompanies();
   }, []);
 
   const handleAddProduct = async (e) => {
     e.preventDefault();
     if (!newProduct.sku || !newProduct.name) return;
+    if (isSuperAdmin && !newProduct.companyId) {
+      setSubmitError('As Super Admin you must select a client company for this product.');
+      return;
+    }
 
     setIsSubmitting(true);
     setSubmitError('');
     try {
+      const payload = {
+        sku: newProduct.sku,
+        name: newProduct.name,
+        category: newProduct.category,
+        weight: parseFloat(newProduct.weight) || 0.1,
+        dimensions: newProduct.dimensions || 'N/A',
+        isHazardous: newProduct.isHazardous,
+        isTemperatureSensitive: newProduct.isTemperatureSensitive,
+      };
+      if (isSuperAdmin) payload.companyId = newProduct.companyId;
+
       const res = await apiFetch('/api/products', {
         method: 'POST',
-        body: JSON.stringify({
-          ...newProduct,
-          weight: parseFloat(newProduct.weight) || 0.1,
-        })
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -66,13 +98,8 @@ export default function Inventory() {
 
       setShowAddModal(false);
       setNewProduct({
-        sku: '',
-        name: '',
-        category: 'Electronics',
-        weight: '',
-        dimensions: '',
-        isHazardous: false,
-        isTemperatureSensitive: false
+        sku: '', name: '', category: 'Electronics', weight: '',
+        dimensions: '', isHazardous: false, isTemperatureSensitive: false, companyId: '',
       });
       await fetchProducts();
     } catch (err) {
@@ -84,7 +111,8 @@ export default function Inventory() {
 
   const filteredProducts = products.filter(p =>
     (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.sku || '').toLowerCase().includes(searchTerm.toLowerCase())
+    (p.sku || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.company?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -92,7 +120,11 @@ export default function Inventory() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-100">Product Catalog</h1>
-          <p className="text-xs text-zinc-500 mt-1">Manage and register multi-tenant item profiles</p>
+          <p className="text-xs text-zinc-500 mt-1">
+            {isSuperAdmin
+              ? 'All registered SKUs across every client tenant'
+              : 'Manage and register your company\'s item profiles'}
+          </p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
@@ -110,7 +142,7 @@ export default function Inventory() {
         </span>
         <input
           type="text"
-          placeholder="Search by SKU or product name..."
+          placeholder={isSuperAdmin ? 'Search by SKU, name, or company...' : 'Search by SKU or product name...'}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-2 text-xs text-gray-100 placeholder-zinc-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
@@ -119,7 +151,7 @@ export default function Inventory() {
 
       {/* Table Container */}
       <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl overflow-hidden">
-        {/* Loading State */}
+        {/* Loading */}
         {isLoading && (
           <div className="flex flex-col items-center justify-center p-16 gap-3 text-zinc-400">
             <Loader2 className="w-7 h-7 animate-spin text-indigo-500" />
@@ -127,7 +159,7 @@ export default function Inventory() {
           </div>
         )}
 
-        {/* Error State */}
+        {/* Error */}
         {!isLoading && error && (
           <div className="flex flex-col items-center justify-center p-16 gap-3 text-zinc-500">
             <PackageSearch className="w-8 h-8 text-zinc-600" />
@@ -147,10 +179,18 @@ export default function Inventory() {
           <div className="flex flex-col items-center justify-center p-16 gap-3 text-zinc-500">
             <PackageSearch className="w-8 h-8 text-zinc-600" />
             <p className="text-sm font-medium text-zinc-400">
-              {searchTerm ? 'No products match your search' : 'No products in catalog yet'}
+              {searchTerm
+                ? 'No products match your search'
+                : isSuperAdmin
+                  ? 'No client products registered yet.'
+                  : 'No products in your catalog yet'}
             </p>
             {!searchTerm && (
-              <p className="text-xs text-zinc-600">Click "Add Product" to register your first SKU.</p>
+              <p className="text-xs text-zinc-600">
+                {isSuperAdmin
+                  ? 'Products are created by client accounts or by you on their behalf.'
+                  : 'Click "Add Product" to register your first SKU.'}
+              </p>
             )}
           </div>
         )}
@@ -163,6 +203,15 @@ export default function Inventory() {
                 <tr className="bg-zinc-900/80 border-b border-zinc-800 text-zinc-400 font-semibold text-xs">
                   <th className="p-4 pl-6">SKU</th>
                   <th className="p-4">Product Name</th>
+                  {/* Client Owner column — only visible to SUPER_ADMIN */}
+                  {isSuperAdmin && (
+                    <th className="p-4">
+                      <span className="flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5" />
+                        Client Owner
+                      </span>
+                    </th>
+                  )}
                   <th className="p-4">Category</th>
                   <th className="p-4">Weight</th>
                   <th className="p-4">Dimensions</th>
@@ -175,6 +224,19 @@ export default function Inventory() {
                   <tr key={product.id} className="hover:bg-zinc-900/40 transition-all">
                     <td className="p-4 pl-6 font-mono text-zinc-400">{product.sku}</td>
                     <td className="p-4 font-semibold text-zinc-100">{product.name}</td>
+                    {/* Client Owner — SUPER_ADMIN only */}
+                    {isSuperAdmin && (
+                      <td className="p-4">
+                        {product.company ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-violet-950/50 border border-violet-900/60 text-violet-300">
+                            <Building2 className="w-3 h-3" />
+                            {product.company.name}
+                          </span>
+                        ) : (
+                          <span className="text-zinc-600">—</span>
+                        )}
+                      </td>
+                    )}
                     <td className="p-4 text-zinc-400">{product.category}</td>
                     <td className="p-4">{product.weight} kg</td>
                     <td className="p-4 text-zinc-400">{product.dimensions || '—'}</td>
@@ -211,7 +273,7 @@ export default function Inventory() {
       {/* Add Product Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-zinc-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl space-y-5">
+          <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-bold text-gray-100">Register New Product</h3>
 
             {submitError && (
@@ -221,6 +283,27 @@ export default function Inventory() {
             )}
 
             <form onSubmit={handleAddProduct} className="space-y-4">
+              {/* SUPER_ADMIN must pick a company */}
+              {isSuperAdmin && (
+                <div>
+                  <label className="block text-[10px] font-semibold text-zinc-500 uppercase mb-1.5">
+                    <Building2 className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />
+                    Client Company <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    required
+                    value={newProduct.companyId}
+                    onChange={(e) => setNewProduct(prev => ({ ...prev, companyId: e.target.value }))}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs text-gray-200 focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="" disabled>Select the owning company...</option>
+                    {companies.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-semibold text-zinc-500 uppercase mb-1.5">SKU Code</label>
@@ -244,6 +327,10 @@ export default function Inventory() {
                     <option value="Power Sources">Power Sources</option>
                     <option value="Furniture">Furniture</option>
                     <option value="Clothing">Clothing</option>
+                    <option value="Pharma">Pharma</option>
+                    <option value="FMCG">FMCG</option>
+                    <option value="Industrial">Industrial</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
               </div>
