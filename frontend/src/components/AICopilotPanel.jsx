@@ -11,7 +11,6 @@ export default function AICopilotPanel({ isOpen, onClose }) {
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef(null);
 
-  // Map route to UI labels
   const getPersona = (path) => {
     if (path.startsWith('/inventory')) {
       return {
@@ -41,7 +40,6 @@ export default function AICopilotPanel({ isOpen, onClose }) {
     };
   };
 
-  // Convert route to backend ENUM
   const getContextPage = (path) => {
     if (path.startsWith('/inventory')) return 'inventory';
     if (path.startsWith('/billing')) return 'billing';
@@ -52,14 +50,12 @@ export default function AICopilotPanel({ isOpen, onClose }) {
   const persona = getPersona(location.pathname);
   const contextPage = getContextPage(location.pathname);
 
-  // Restart conversation on persona change
   useEffect(() => {
     setMessages([
       { id: 'greet', text: persona.greet, sender: 'bot', timestamp: new Date() }
     ]);
   }, [location.pathname]);
 
-  // Scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -92,7 +88,6 @@ export default function AICopilotPanel({ isOpen, onClose }) {
       });
 
       const result = await res.json();
-      
       setIsTyping(false);
       
       if (res.ok && result.success) {
@@ -106,7 +101,7 @@ export default function AICopilotPanel({ isOpen, onClose }) {
       } else {
         const errorMsg = {
           id: `bot-err-${Date.now()}`,
-          text: result.message || 'I encountered an error querying the intelligence engine. Please ensure database matches.',
+          text: result.message || 'I encountered an error querying the intelligence engine.',
           sender: 'bot',
           timestamp: new Date()
         };
@@ -127,27 +122,27 @@ export default function AICopilotPanel({ isOpen, onClose }) {
 
   return (
     <div
-      className={`fixed top-0 right-0 h-full w-[400px] max-w-full bg-[#18181b]/95 backdrop-blur-md border-l border-[#27272a] shadow-2xl flex flex-col transition-transform duration-300 z-50 ${
+      className={`fixed top-0 right-0 z-50 w-96 h-full border-l border-zinc-800 bg-zinc-900/95 backdrop-blur shadow-2xl transition-transform duration-300 flex flex-col ${
         isOpen ? 'translate-x-0' : 'translate-x-full'
       }`}
     >
       {/* Drawer Header */}
-      <div className="p-4 border-b border-[#27272a] flex items-center justify-between bg-[#09090b]/50">
+      <div className="p-4 border-b border-zinc-850 flex items-center justify-between bg-zinc-950/20">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30">
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-semibold text-sm text-gray-100 flex items-center gap-1.5 animate-pulse">
+            <h3 className="font-semibold text-sm text-gray-100 flex items-center gap-1.5">
               {persona.title}
-              <span className="inline-flex w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span className="inline-flex w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             </h3>
-            <p className="text-xs text-gray-400">{persona.subtitle}</p>
+            <p className="text-[10px] text-zinc-400">{persona.subtitle}</p>
           </div>
         </div>
         <button
           onClick={onClose}
-          className="text-gray-400 hover:text-gray-200 p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+          className="text-zinc-400 hover:text-zinc-200 p-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>
@@ -170,14 +165,14 @@ export default function AICopilotPanel({ isOpen, onClose }) {
               {msg.sender === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
             </div>
             <div
-              className={`p-3 rounded-2xl text-sm leading-relaxed shadow-md ${
+              className={`p-3 rounded-2xl text-xs leading-relaxed shadow-md ${
                 msg.sender === 'user'
                   ? 'bg-indigo-600/90 text-white rounded-tr-none'
-                  : 'bg-zinc-900 border border-zinc-800 text-gray-200 rounded-tl-none'
+                  : 'bg-zinc-950 border border-zinc-850 text-gray-200 rounded-tl-none'
               }`}
             >
               {msg.text}
-              <div className="text-[10px] text-gray-400/80 mt-1 text-right">
+              <div className="text-[9px] text-zinc-500 mt-1 text-right">
                 {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
             </div>
@@ -189,10 +184,10 @@ export default function AICopilotPanel({ isOpen, onClose }) {
             <div className="w-7 h-7 rounded-lg bg-zinc-800 text-gray-300 flex items-center justify-center">
               <Bot className="w-4 h-4" />
             </div>
-            <div className="bg-zinc-900 border border-zinc-800 text-gray-300 p-3 rounded-2xl rounded-tl-none flex items-center gap-1">
-              <span className="w-2.5 h-2.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-              <span className="w-2.5 h-2.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-              <span className="w-2.5 h-2.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+            <div className="bg-zinc-950 border border-zinc-850 text-gray-300 p-3 rounded-2xl rounded-tl-none flex items-center gap-1">
+              <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+              <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+              <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
             </div>
           </div>
         )}
@@ -200,18 +195,18 @@ export default function AICopilotPanel({ isOpen, onClose }) {
       </div>
 
       {/* Input Bar */}
-      <form onSubmit={handleSend} className="p-4 border-t border-[#27272a] bg-[#09090b]/50">
+      <form onSubmit={handleSend} className="p-4 border-t border-zinc-800 bg-zinc-950/20">
         <div className="flex gap-2">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={`Ask the ${persona.title}...`}
-            className="flex-1 bg-zinc-900/80 border border-zinc-800 rounded-xl px-4 py-2 text-sm text-gray-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+            className="flex-1 bg-zinc-950 border border-zinc-850 rounded-xl px-4 py-2 text-xs text-gray-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-all"
           />
           <button
             type="submit"
-            className="bg-indigo-600 hover:bg-indigo-500 text-white p-2.5 rounded-xl transition-colors shadow-lg shadow-indigo-600/20"
+            className="bg-indigo-600 hover:bg-indigo-500 text-white p-2.5 rounded-xl transition-colors shadow-lg shadow-indigo-600/20 cursor-pointer"
           >
             <Send className="w-4 h-4" />
           </button>
