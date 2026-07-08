@@ -10,9 +10,9 @@
     "build": "echo 'No build step required for native ESM'",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:push": "prisma db push",
-    "db:seed": "prisma db seed",
-    "db:generate": "prisma generate"
+    "db:push": "prisma db push --schema=../prisma/schema.prisma",
+    "db:seed": "prisma db seed --schema=../prisma/schema.prisma",
+    "db:generate": "prisma generate --schema=../prisma/schema.prisma"
   },
   "dependencies": {
     "@google/genai": "^2.10.0",
@@ -30,6 +30,6 @@
     "vitest": "^2.0.0"
   },
   "prisma": {
-    "seed": "node prisma/seed.js"
+    "seed": "node ../prisma/seed.js"
   }
 }
