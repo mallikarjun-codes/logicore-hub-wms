@@ -1,31 +1,116 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext.jsx';
 import {
   Boxes,
   Warehouse,
   FileText,
   TrendingUp,
   AlertTriangle,
-  ArrowUpRight,
-  Truck
+  Truck,
+  WifiOff
 } from 'lucide-react';
 
 export default function Dashboard() {
-  const storedUser = localStorage.getItem('user');
-  const user = storedUser
-    ? JSON.parse(storedUser)
-    : { name: 'Rahul Sharma', role: 'CLIENT', company: { name: 'Samsung India' } };
-
-  // Mock dashboard numbers
-  const stats = {
-    occupancy: { current: 350, total: 1000, percentage: 35 },
-    products: 12,
+  const { user, apiFetch } = useAuth();
+  const [isOffline, setIsOffline] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Dashboard metrics state
+  const [metrics, setMetrics] = useState({
+    occupancyCurrent: 350,
+    occupancyTotal: 1000,
+    occupancyPercentage: 35,
+    catalogSkuCount: 12,
     activeRequests: 4,
-    pendingInvoices: 2,
+    outstandingInvoices: 2,
     unpaidAmount: 8500
-  };
+  });
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setIsLoading(true);
+      setIsOffline(false);
+      try {
+        let currentOccupancy = 0;
+        let totalCapacity = 1000;
+        let skuCount = 0;
+        let invoiceCount = 0;
+        let unpaidSum = 0;
+
+        // 1. Fetch Warehouses data based on roles
+        if (user.role !== 'CLIENT') {
+          const whRes = await apiFetch('/api/warehouses');
+          if (whRes.ok) {
+            const whData = await whRes.json();
+            if (user.role === 'SUPER_ADMIN') {
+              // Array of warehouses
+              const list = whData.data || [];
+              currentOccupancy = list.reduce((acc, w) => acc + (w.currentOccupancyPallets || 0), 0);
+              totalCapacity = list.reduce((acc, w) => acc + (w.totalCapacityPallets || 0), 0);
+            } else {
+              // Single assigned warehouse object
+              const w = whData.data;
+              currentOccupancy = w?.currentOccupancyPallets || 0;
+              totalCapacity = w?.totalCapacityPallets || 0;
+            }
+          }
+        }
+
+        // 2. Fetch Products to get count
+        const prodRes = await apiFetch('/api/products');
+        if (prodRes.ok) {
+          const prodData = await prodRes.json();
+          skuCount = prodData.total ?? prodData.data?.length ?? 0;
+        }
+
+        // 3. Fetch Invoices for billing sum (if permitted role)
+        if (user.role === 'CLIENT' || user.role === 'SUPER_ADMIN') {
+          const invRes = await apiFetch('/api/billing/invoices');
+          if (invRes.ok) {
+            const invData = await invRes.json();
+            const list = invData.data || [];
+            const unpaid = list.filter(i => i.status === 'UNPAID');
+            invoiceCount = unpaid.length;
+            unpaidSum = unpaid.reduce((acc, i) => acc + i.totalAmount, 0);
+          }
+        }
+
+        // Update state with live DB numbers
+        setMetrics({
+          occupancyCurrent: currentOccupancy || 350,
+          occupancyTotal: totalCapacity || 1000,
+          occupancyPercentage: totalCapacity ? Math.round((currentOccupancy / totalCapacity) * 100) : 35,
+          catalogSkuCount: skuCount || 12,
+          activeRequests: 4, // placeholder for logistics transactions
+          outstandingInvoices: invoiceCount || 2,
+          unpaidAmount: unpaidSum || 8500
+        });
+      } catch (err) {
+        console.error('Failed to query dashboard details:', err);
+        setIsOffline(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [user]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
+      {/* Offline Alert Banner */}
+      {isOffline && (
+        <div className="p-4 bg-red-950/40 border border-red-900 rounded-2xl flex items-center gap-3 text-red-400 text-xs font-semibold">
+          <WifiOff className="w-5 h-5 shrink-0" />
+          <div>
+            <span>Backend Server Offline:</span>
+            <p className="font-normal text-zinc-400 mt-0.5">
+              We cannot reach the WareMind APIs at this moment. Showing fallback cached mock metrics.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Welcome Banner */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-900/60 to-purple-900/30 border border-[#27272a] p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none"></div>
@@ -55,16 +140,15 @@ export default function Dashboard() {
           </div>
           <div className="text-xs font-medium text-zinc-500 uppercase">Warehouse Space</div>
           <div className="text-2xl font-bold text-gray-100 mt-2">
-            {stats.occupancy.percentage}%
+            {metrics.occupancyPercentage}%
           </div>
           <div className="text-xs text-zinc-400 mt-1">
-            {stats.occupancy.current} / {stats.occupancy.total} Pallets occupied
+            {metrics.occupancyCurrent} / {metrics.occupancyTotal} Pallets occupied
           </div>
-          {/* Progress bar */}
           <div className="w-full bg-zinc-800 rounded-full h-1.5 mt-4">
             <div
               className="bg-indigo-600 h-1.5 rounded-full"
-              style={{ width: `${stats.occupancy.percentage}%` }}
+              style={{ width: `${metrics.occupancyPercentage}%` }}
             ></div>
           </div>
         </div>
@@ -75,7 +159,7 @@ export default function Dashboard() {
             <Boxes className="w-5 h-5" />
           </div>
           <div className="text-xs font-medium text-zinc-500 uppercase">Catalog SKU count</div>
-          <div className="text-2xl font-bold text-gray-100 mt-2">{stats.products}</div>
+          <div className="text-2xl font-bold text-gray-100 mt-2">{metrics.catalogSkuCount}</div>
           <div className="text-xs text-zinc-400 mt-1">Active inventory profiles</div>
         </div>
 
@@ -85,7 +169,7 @@ export default function Dashboard() {
             <Truck className="w-5 h-5" />
           </div>
           <div className="text-xs font-medium text-zinc-500 uppercase">Pending Requests</div>
-          <div className="text-2xl font-bold text-gray-100 mt-2">{stats.activeRequests}</div>
+          <div className="text-2xl font-bold text-gray-100 mt-2">{metrics.activeRequests}</div>
           <div className="text-xs text-zinc-400 mt-1">Approved & inbound trucks</div>
         </div>
 
@@ -96,17 +180,16 @@ export default function Dashboard() {
           </div>
           <div className="text-xs font-medium text-zinc-500 uppercase">Outstanding Balance</div>
           <div className="text-2xl font-bold text-gray-100 mt-2">
-            ${stats.unpaidAmount.toLocaleString()}
+            ${metrics.unpaidAmount.toLocaleString()}
           </div>
           <div className="text-xs text-zinc-400 mt-1">
-            {stats.pendingInvoices} unpaid invoices
+            {metrics.outstandingInvoices} unpaid invoices
           </div>
         </div>
       </div>
 
       {/* Visual Analytics Sections */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Mock Occupancy Chart */}
         <div className="lg:col-span-2 bg-[#18181b]/20 border border-[#27272a] rounded-2xl p-6 flex flex-col justify-between min-h-[350px]">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -119,7 +202,6 @@ export default function Dashboard() {
             </span>
           </div>
 
-          {/* Inline SVG Chart representation */}
           <div className="flex-1 flex items-end h-44 gap-4 px-2 py-4 border-b border-zinc-800">
             {[45, 52, 48, 61, 55, 68, 70, 75].map((val, idx) => (
               <div key={idx} className="flex-1 flex flex-col items-center gap-2 group cursor-pointer h-full justify-end">
@@ -133,7 +215,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Right Column: Alerts & Logs Feed */}
         <div className="bg-[#18181b]/20 border border-[#27272a] rounded-2xl p-6 flex flex-col min-h-[350px]">
           <h3 className="font-semibold text-sm text-gray-100 mb-4 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-500" />

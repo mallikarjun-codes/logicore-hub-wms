@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import Layout from './components/Layout.jsx';
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -8,18 +9,16 @@ import Billing from './pages/Billing.jsx';
 import Warehouse from './pages/Warehouse.jsx';
 import './App.css';
 
-// Simple Route Guard
+// Route Guard using the Auth Context state
 function ProtectedRoute({ children }) {
-  const token = localStorage.getItem('token');
+  const { token } = useAuth();
   if (!token) {
-    // Falls back to mock authentication if no token is saved yet (to ease review)
-    // We can require sign in but let's check: if we log in once, we set token.
     return <Navigate to="/login" replace />;
   }
   return children;
 }
 
-function App() {
+function AppContent() {
   return (
     <BrowserRouter>
       <Routes>
@@ -45,6 +44,14 @@ function App() {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

@@ -1,45 +1,38 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, Sparkles, Key } from 'lucide-react';
+import { useAuth } from '../context/AuthContext.jsx';
+import { Mail, Lock, Key } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login, setUser } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    // Simple mocked client-side sign-in
-    setTimeout(() => {
-      setIsLoading(false);
-      if (!email.trim() || !password.trim()) {
-        setError('Please enter both email and password.');
-        return;
-      }
-      
-      const mockedUser = {
-        name: 'Rahul Sharma',
-        role: 'CLIENT',
-        email: email,
-        company: { name: 'Samsung India' }
-      };
-      
-      localStorage.setItem('user', JSON.stringify(mockedUser));
-      localStorage.setItem('token', 'mocked-jwt-token-string');
+    try {
+      await login(email, password);
       navigate('/dashboard');
-    }, 800);
+    } catch (err) {
+      setError(err.message || 'Invalid email or password.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleQuickLogin = (role, name, companyName, testEmail) => {
     setIsLoading(true);
+    // Simulates role session instantiation directly to ease review workflows
     setTimeout(() => {
       setIsLoading(false);
       const mockedUser = {
+        id: `mock-${role.toLowerCase()}`,
         name,
         role,
         email: testEmail,
@@ -47,13 +40,14 @@ export default function Login() {
       };
       localStorage.setItem('user', JSON.stringify(mockedUser));
       localStorage.setItem('token', 'mocked-jwt-token-string');
+      // Update global context directly
+      setUser(mockedUser);
       navigate('/dashboard');
     }, 500);
   };
 
   return (
     <div className="min-h-screen bg-[#09090b] flex flex-col justify-center items-center px-4 relative overflow-hidden">
-      {/* Dynamic Background Gradients */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none"></div>
 
@@ -81,6 +75,7 @@ export default function Login() {
               </span>
               <input
                 type="email"
+                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@company.com"
@@ -97,6 +92,7 @@ export default function Login() {
               </span>
               <input
                 type="password"
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
@@ -114,7 +110,6 @@ export default function Login() {
           </button>
         </form>
 
-        {/* Demo Identities Section */}
         <div className="mt-8 pt-6 border-t border-zinc-800">
           <div className="text-[10px] text-zinc-500 font-semibold tracking-wider uppercase mb-3 flex items-center gap-1.5 justify-center">
             <Key className="w-3.5 h-3.5" />

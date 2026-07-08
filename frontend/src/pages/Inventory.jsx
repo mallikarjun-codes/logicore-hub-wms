@@ -1,45 +1,14 @@
-import React, { useState } from 'react';
-import { Plus, Search, Filter, AlertOctagon, Snowflake, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext.jsx';
+import { Plus, Search, AlertOctagon, Snowflake, WifiOff, Loader2 } from 'lucide-react';
 
 export default function Inventory() {
+  const { apiFetch } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [products, setProducts] = useState([
-    {
-      id: '1',
-      sku: 'SAM-S24-ULTRA',
-      name: 'Samsung Galaxy S24 Ultra',
-      category: 'Electronics',
-      weight: 0.232,
-      dimensions: '162.3 x 79 x 8.6 mm',
-      isHazardous: false,
-      isTemperatureSensitive: true,
-      stockCount: 1500
-    },
-    {
-      id: '2',
-      sku: 'BOAT-AD-141',
-      name: 'Boat Airdopes 141',
-      category: 'Electronics',
-      weight: 0.05,
-      dimensions: '5 x 5 x 2 cm',
-      isHazardous: false,
-      isTemperatureSensitive: false,
-      stockCount: 80
-    },
-    {
-      id: '3',
-      sku: 'LIPO-BATT-3S',
-      name: 'LiPo Battery 3S 5000mAh',
-      category: 'Power Sources',
-      weight: 0.38,
-      dimensions: '135 x 45 x 25 mm',
-      isHazardous: true,
-      isTemperatureSensitive: false,
-      stockCount: 120
-    }
-  ]);
-
+  const [isLoading, setIsLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(false);
+  const [products, setProducts] = useState([]);
   const [newProduct, setNewProduct] = useState({
     sku: '',
     name: '',
@@ -49,40 +18,92 @@ export default function Inventory() {
     isHazardous: false,
     isTemperatureSensitive: false
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
-  const handleAddProduct = (e) => {
+  const fetchProducts = async () => {
+    setIsLoading(true);
+    setIsOffline(false);
+    try {
+      const res = await apiFetch('/api/products');
+      if (res.ok) {
+        const result = await res.json();
+        // The API returns { success: true, data: [...] }
+        setProducts(result.data || []);
+      } else {
+        setIsOffline(true);
+      }
+    } catch (err) {
+      console.error('Failed to load products:', err);
+      setIsOffline(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const handleAddProduct = async (e) => {
     e.preventDefault();
     if (!newProduct.sku || !newProduct.name) return;
 
-    setProducts(prev => [
-      ...prev,
-      {
-        id: String(prev.length + 1),
-        ...newProduct,
-        weight: parseFloat(newProduct.weight) || 0.1,
-        stockCount: 0
-      }
-    ]);
+    setIsSubmitting(true);
+    setSubmitError('');
+    try {
+      const res = await apiFetch('/api/products', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...newProduct,
+          weight: parseFloat(newProduct.weight) || 0.1,
+        })
+      });
 
-    setNewProduct({
-      sku: '',
-      name: '',
-      category: 'Electronics',
-      weight: '',
-      dimensions: '',
-      isHazardous: false,
-      isTemperatureSensitive: false
-    });
-    setShowAddModal(false);
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to create product.');
+      }
+
+      // Success -> Close modal, refetch, reset fields
+      setShowAddModal(false);
+      setNewProduct({
+        sku: '',
+        name: '',
+        category: 'Electronics',
+        weight: '',
+        dimensions: '',
+        isHazardous: false,
+        isTemperatureSensitive: false
+      });
+      await fetchProducts();
+    } catch (err) {
+      setSubmitError(err.message || 'Failed to communicate with catalog database.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+    (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.sku || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
+      {/* Offline Alert Banner */}
+      {isOffline && (
+        <div className="p-4 bg-red-950/40 border border-red-900 rounded-2xl flex items-center gap-3 text-red-400 text-xs font-semibold">
+          <WifiOff className="w-5 h-5 shrink-0" />
+          <div>
+            <span>Backend Server Offline:</span>
+            <p className="font-normal text-zinc-400 mt-0.5">
+              Cannot fetch active catalog. Showing temporary static items.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-100">Product Catalog</h1>
@@ -116,57 +137,65 @@ export default function Inventory() {
       {/* Table Container */}
       <div className="bg-[#18181b]/20 border border-[#27272a] rounded-2xl overflow-hidden shadow-lg">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-zinc-900/60 border-b border-zinc-800 text-zinc-400 font-semibold text-xs">
-                <th className="p-4 pl-6">SKU</th>
-                <th className="p-4">Product Name</th>
-                <th className="p-4">Category</th>
-                <th className="p-4">Weight</th>
-                <th className="p-4">Dimensions</th>
-                <th className="p-4">Attributes</th>
-                <th className="p-4 pr-6 text-right">Stored Units</th>
-              </tr>
-            </thead>
-            <tbody className="text-zinc-300 text-xs divide-y divide-zinc-800/80">
-              {filteredProducts.map(product => (
-                <tr key={product.id} className="hover:bg-zinc-900/30 transition-all">
-                  <td className="p-4 pl-6 font-mono text-zinc-400">{product.sku}</td>
-                  <td className="p-4 font-semibold text-zinc-100">{product.name}</td>
-                  <td className="p-4 text-zinc-400">{product.category}</td>
-                  <td className="p-4">{product.weight} kg</td>
-                  <td className="p-4 text-zinc-400">{product.dimensions}</td>
-                  <td className="p-4 flex gap-1.5 items-center">
-                    {product.isHazardous && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-950/60 border border-red-900 text-[10px] text-red-400 font-semibold">
-                        <AlertOctagon className="w-3 h-3" />
-                        Hazardous
-                      </span>
-                    )}
-                    {product.isTemperatureSensitive && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-950/60 border border-blue-900 text-[10px] text-blue-400 font-semibold">
-                        <Snowflake className="w-3 h-3" />
-                        Temp Controlled
-                      </span>
-                    )}
-                    {!product.isHazardous && !product.isTemperatureSensitive && (
-                      <span className="text-zinc-500 text-[10px]">—</span>
-                    )}
-                  </td>
-                  <td className="p-4 pr-6 text-right font-bold text-indigo-400">
-                    {product.stockCount.toLocaleString()}
-                  </td>
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center p-12 text-zinc-400 gap-2">
+              <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+              <span className="text-xs font-semibold">Loading product catalog...</span>
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-zinc-900/60 border-b border-zinc-800 text-zinc-400 font-semibold text-xs">
+                  <th className="p-4 pl-6">SKU</th>
+                  <th className="p-4">Product Name</th>
+                  <th className="p-4">Category</th>
+                  <th className="p-4">Weight</th>
+                  <th className="p-4">Dimensions</th>
+                  <th className="p-4">Attributes</th>
+                  <th className="p-4 pr-6 text-right">Stored Units</th>
                 </tr>
-              ))}
-              {filteredProducts.length === 0 && (
-                <tr>
-                  <td colSpan="7" className="p-8 text-center text-zinc-500 font-semibold">
-                    No products found matching the query.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="text-zinc-300 text-xs divide-y divide-zinc-800/80">
+                {filteredProducts.map(product => (
+                  <tr key={product.id} className="hover:bg-zinc-900/30 transition-all">
+                    <td className="p-4 pl-6 font-mono text-zinc-400">{product.sku}</td>
+                    <td className="p-4 font-semibold text-zinc-100">{product.name}</td>
+                    <td className="p-4 text-zinc-400">{product.category}</td>
+                    <td className="p-4">{product.weight} kg</td>
+                    <td className="p-4 text-zinc-400">{product.dimensions}</td>
+                    <td className="p-4 flex gap-1.5 items-center">
+                      {product.isHazardous && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-950/60 border border-red-900 text-[10px] text-red-400 font-semibold">
+                          <AlertOctagon className="w-3 h-3" />
+                          Hazardous
+                        </span>
+                      )}
+                      {product.isTemperatureSensitive && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-950/60 border border-blue-900 text-[10px] text-blue-400 font-semibold">
+                          <Snowflake className="w-3 h-3" />
+                          Temp Controlled
+                        </span>
+                      )}
+                      {!product.isHazardous && !product.isTemperatureSensitive && (
+                        <span className="text-zinc-500 text-[10px]">—</span>
+                      )}
+                    </td>
+                    <td className="p-4 pr-6 text-right font-bold text-indigo-400">
+                      {/* Show active inventory count if available, or fall back */}
+                      {product._count?.inventories ?? product.stockCount ?? 0}
+                    </td>
+                  </tr>
+                ))}
+                {filteredProducts.length === 0 && (
+                  <tr>
+                    <td colSpan="7" className="p-8 text-center text-zinc-500 font-semibold">
+                      No products found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
@@ -176,6 +205,12 @@ export default function Inventory() {
           <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-6">
             <h3 className="text-base font-bold text-gray-100">Register New Product Profile</h3>
             
+            {submitError && (
+              <div className="p-3 bg-red-950/20 border border-red-900 text-red-400 rounded-xl text-xs font-semibold">
+                {submitError}
+              </div>
+            )}
+
             <form onSubmit={handleAddProduct} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -272,8 +307,10 @@ export default function Inventory() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition-colors shadow-lg shadow-indigo-600/10"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition-colors shadow-lg shadow-indigo-600/10 flex items-center gap-1.5"
                 >
+                  {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   Add Product
                 </button>
               </div>

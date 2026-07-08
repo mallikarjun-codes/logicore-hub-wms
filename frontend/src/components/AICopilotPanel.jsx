@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Send, Bot, User, Sparkles, X, ChevronRight } from 'lucide-react';
+import { useAuth } from '../context/AuthContext.jsx';
+import { Send, Bot, User, Sparkles, X } from 'lucide-react';
 
 export default function AICopilotPanel({ isOpen, onClose }) {
   const location = useLocation();
+  const { apiFetch } = useAuth();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef(null);
 
-  // Map route to AI Analyst Persona
+  // Map route to UI labels
   const getPersona = (path) => {
     if (path.startsWith('/inventory')) {
       return {
@@ -32,7 +34,6 @@ export default function AICopilotPanel({ isOpen, onClose }) {
         greet: 'Operational dashboard loaded. Ask me about your warehouse grid zones, rack occupancy status, or total capacity thresholds.'
       };
     }
-    // Default dashboard
     return {
       title: 'Business Intelligence Analyst',
       subtitle: 'Aggregating high-level WMS operations',
@@ -40,9 +41,18 @@ export default function AICopilotPanel({ isOpen, onClose }) {
     };
   };
 
-  const persona = getPersona(location.pathname);
+  // Convert route to backend ENUM
+  const getContextPage = (path) => {
+    if (path.startsWith('/inventory')) return 'inventory';
+    if (path.startsWith('/billing')) return 'billing';
+    if (path.startsWith('/warehouse')) return 'warehouse';
+    return 'dashboard';
+  };
 
-  // Restart chat / greet on persona change
+  const persona = getPersona(location.pathname);
+  const contextPage = getContextPage(location.pathname);
+
+  // Restart conversation on persona change
   useEffect(() => {
     setMessages([
       { id: 'greet', text: persona.greet, sender: 'bot', timestamp: new Date() }
@@ -58,11 +68,12 @@ export default function AICopilotPanel({ isOpen, onClose }) {
 
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || isTyping) return;
 
+    const promptText = input;
     const userMsg = {
       id: `user-${Date.now()}`,
-      text: input,
+      text: promptText,
       sender: 'user',
       timestamp: new Date()
     };
@@ -71,17 +82,47 @@ export default function AICopilotPanel({ isOpen, onClose }) {
     setInput('');
     setIsTyping(true);
 
-    // Simulate AI response logic (to be integrated next)
-    setTimeout(() => {
+    try {
+      const res = await apiFetch('/api/ai/copilot', {
+        method: 'POST',
+        body: JSON.stringify({
+          message: promptText,
+          contextPage: contextPage,
+        }),
+      });
+
+      const result = await res.json();
+      
       setIsTyping(false);
-      const botMsg = {
-        id: `bot-${Date.now()}`,
-        text: `Based on your request regarding the ${persona.title} page, this is a simulated context-aware answer from your WareMind Copilot. Database retrieval hooks are initialized and ready.`,
+      
+      if (res.ok && result.success) {
+        const botMsg = {
+          id: `bot-${Date.now()}`,
+          text: result.data.response,
+          sender: 'bot',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, botMsg]);
+      } else {
+        const errorMsg = {
+          id: `bot-err-${Date.now()}`,
+          text: result.message || 'I encountered an error querying the intelligence engine. Please ensure database matches.',
+          sender: 'bot',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, errorMsg]);
+      }
+    } catch (err) {
+      console.error('AI chat failed:', err);
+      setIsTyping(false);
+      const offlineMsg = {
+        id: `bot-offline-${Date.now()}`,
+        text: 'The WareMind API server appears offline. I am unable to query Google Gemini.',
         sender: 'bot',
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, botMsg]);
-    }, 1200);
+      setMessages(prev => [...prev, offlineMsg]);
+    }
   };
 
   return (
@@ -97,9 +138,9 @@ export default function AICopilotPanel({ isOpen, onClose }) {
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-semibold text-sm text-gray-100 flex items-center gap-1.5">
+            <h3 className="font-semibold text-sm text-gray-100 flex items-center gap-1.5 animate-pulse">
               {persona.title}
-              <span className="inline-flex w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="inline-flex w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
             </h3>
             <p className="text-xs text-gray-400">{persona.subtitle}</p>
           </div>
